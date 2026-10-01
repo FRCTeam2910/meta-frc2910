@@ -5,22 +5,24 @@ using Yocto Project tools and the [meta-tegra](https://github.com/OE4T/meta-tegr
 
 Metadata layers are brought in as git submodules:
 
-| Layer Repo            | Branch         | Description                                         |
-| --------------------- | ---------------|---------------------------------------------------- |
-| poky                  | scarthgap      | OE-Core from poky repo at yoctoproject.org          |
-| meta-tegra            | scarthgap      | L4T BSP layer - L4T R36.4.0/JetPack 6.1             |
-| meta-tegra-community  | scarthgap      | OE4T layer with additions from the community        |
-| meta-openembedded     | scarthgap      | OpenEmbedded layers                                 |
-| meta-virtualization   | scarthgap      | Virtualization layer for docker support             |
+| Layer Repo            | Branch         | Description                                                       |
+| --------------------- | ---------------|------------------------------------------------------------------ |
+| openembedded-core     | wrynose        | OE-Core (Yocto 6.0) — replaces the deprecated poky combo-layer     |
+| bitbake               | master         | BitBake (no codename branches; tracks master)                     |
+| meta-yocto            | wrynose        | meta-poky / meta-yocto-bsp (formerly bundled in poky)             |
+| meta-tegra            | wrynose        | L4T BSP layer - JetPack 7.2 / rel-39.2                           |
+| meta-tegra-community  | wrynose        | OE4T layer with additions from the community                      |
+| meta-openembedded     | wrynose        | OpenEmbedded layers                                               |
+| meta-virtualization   | wrynose        | Virtualization layer for docker support                           |
+| meta-clang            | wrynose        | Clang/LLVM toolchain layer                                         |
 
 ## Usage
 
-The upstream project has been modified to support AOS on the Jetson Nano 8GB SOM on a Seeed
+The upstream project has been modified to support AOS on the Jetson Orin Nano 8GB SOM on a Seeed
 studio J401.  To build, run:
 
 ```
-export MACHINE=p3768-0000-p3767-0003
-. repos/poky/oe-init-build-env build
+. setup-env --machine p3768-0000-p3767-0003 build
 bitbake demo-image-base && ../to_xfs.py tmp/deploy/images/p3768-0000-p3767-0003/demo-image-base-p3768-0000-p3767-0003.rootfs.tegraflash.tar.gz demo-image-base-p3768-0000-p3767-0003.rootfs.tegraflash.tar.zst
 ```
 
@@ -30,8 +32,7 @@ To flash, extract the image, then run `sudo ./initrd-flash` with the orin in boo
 
 To build for a devkit instead of a seed J401, run:
 ```
-export MACHINE=jetson-orin-nano-devkit-nvme
-. repos/poky/oe-init-build-env build
+. setup-env --machine jetson-orin-nano-devkit-nvme build
 bitbake demo-image-base && ../to_xfs.py tmp/deploy/images/jetson-orin-nano-devkit-nvme/demo-image-base-jetson-orin-nano-devkit-nvme.rootfs.tegraflash.tar.gz demo-image-base-jetson-orin-nano-devkit-nvme.rootfs.tegraflash.tar.zst
 ```
 
