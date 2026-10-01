@@ -109,12 +109,16 @@ SDKMACHINE ?= "x86_64"
 #  "eclipse-debug"  - add Eclipse remote debugging support
 #  "tools-profile"  - add profiling tools (oprofile, lttng, valgrind)
 #  "tools-testapps" - add useful testing tools (ts_print, aplay, arecord etc.)
-#  "debug-tweaks"   - make an image suitable for development
-#                     e.g. ssh root access has a blank password
+#  "allow-empty-password" - allow users to have an empty password
+#  "allow-root-login"  - the root user can login
+#  "empty-root-password" - the root user has no password set
+# (These three replace the old 'debug-tweaks' feature, which was
+#  decomposed in Yocto 6.0 / wrynose. Together they make an image
+#  suitable for development, e.g. ssh root access with a blank password.)
 # There are other application targets that can be used here too, see
 # meta/classes/image.bbclass and meta/classes/core-image.bbclass for more details.
 # We default to enabling the debugging tweaks.
-EXTRA_IMAGE_FEATURES ?= "debug-tweaks"
+EXTRA_IMAGE_FEATURES ?= "allow-empty-password allow-root-login empty-root-password"
 
 #
 # Additional image features
@@ -175,9 +179,65 @@ BB_DISKMON_DIRS ??= "\
     HALT,/tmp,10M,1K"
 
 #
-# Shared-state files from other locations
+# Auto-delete recipe work directories after each task completes
 #
-# As mentioned above, shared state files are prebuilt cache data objects which can be
+# The host root filesystem is BTRFS and the build generates a very large number
+# of small files (object files, intermediate crates, sysroot stubs). Without
+# rm_work the tmp/work/ tree grows to ~150 GB and saturates BTRFS metadata,
+# forcing the filesystem read-only (errno -28 ENOSPC on metadata despite free
+# data space). rm_work deletes each recipe's work dir once its tasks are done,
+# while keeping downloads/ (fetched sources) and sstate-cache/ (built outputs)
+# intact for reuse on subsequent builds. This dramatically reduces peak disk
+# usage and inode/metadata pressure.
+INHERIT += "rm_work"
+
+#
+# Shallow git clones for large git-fetched recipes
+#
+# Several recipes fetch from upstream git repos whose full --mirror clones
+# are hundreds of MB to multiple GB. Fetching the complete history is
+# pointless in Yocto — only the pinned SRCREV (a single commit) is ever
+# checked out — and the long-lived HTTP/2 git transfer frequently dies
+# mid-clone on consumer-grade connections (even fast fiber/Wi-Fi 6) with:
+#     error: RPC failed; curl 92 HTTP/2 stream 5 was not closed cleanly
+#     fatal: early EOF / fetch-pack: invalid index-pack output
+# The Yocto source mirrors (downloads.yoctoproject.org, edge.kernel.org)
+# do not carry these vendor / upstream repos, so the MIRRORS fallback
+# cannot recover them either. BB_GIT_SHALLOW turns the fetcher's
+# `clone --mirror` into a depth=1 shallow fetch that pulls only the
+# objects reachable from the pinned SRCREV — a tiny fraction of the full
+# history — which both completes reliably and saves disk.
+#
+# Scoped per-recipe rather than globally (BB_GIT_SHALLOW ??= "1") because:
+#   - devtool upgrade / modify need a full clone to compute deltas across
+#     SRCREV bumps (shallow clones lack the merge-base objects).
+#   - src/debug image features and the archiver class rely on real git
+#     history (tags, `git describe`) for meaningful source packages.
+#   - Most recipes fetch small repos or PyPI tarballs where shallow buys
+#     nothing and only adds risk. Target the actually-large git repos.
+# To add another recipe: confirm it pins SRCREV (not ${AUTOREV}) and has
+# either a single named remote or compatible multi-remote SRCREV_FORMAT,
+# then add a pair of lines here.
+#
+# linux-noble-nvidia-tegra: NVIDIA L4T R39.2.1 Ubuntu kernel from
+#   gitlab.com/nvidia/nv-tegra/3rdparty/canonical/linux-noble.git — 10M+
+#   objects, multi-GB full clone, the original failure case.
+# systemd: github.com/systemd/systemd.git — ~825 MB full clone, single
+#   remote, pinned tag v${PV}, safe to shallow.
+# python3-pefile: github.com/erocarrera/pefile — ~1.3 GB full clone for a
+#   tiny Python module, single remote, pinned SRCREV, safe to shallow.
+# NOT included: opencv (7 named remotes with SRCREV_FORMAT, complex
+#   multi-remote shallow behavior) — left as full clone; revisit only if
+#   its fetch ever actually fails.
+BB_GIT_SHALLOW:pn-linux-noble-nvidia-tegra = "1"
+BB_GIT_SHALLOW_DEPTH:pn-linux-noble-nvidia-tegra = "1"
+BB_GIT_SHALLOW:pn-systemd = "1"
+BB_GIT_SHALLOW_DEPTH:pn-systemd = "1"
+BB_GIT_SHALLOW:pn-python3-pefile = "1"
+BB_GIT_SHALLOW_DEPTH:pn-python3-pefile = "1"
+
+#
+# As mentioned above, shared state files are prebuilt cache data objects which be
 # used to accelerate build time. This variable can be used to configure the system
 # to search other mirror locations for these objects before it builds the data itself.
 #

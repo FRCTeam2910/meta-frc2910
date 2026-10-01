@@ -1,7 +1,17 @@
-build/bitbake*
-build/cache
-build/hashserve*
-build/tmp
+# Yocto build directories. The entire build/ tree is generated output
+# (downloaded sources, sstate cache, tmp/work, and the rendered
+# build/conf/*.conf that setup-env regenerates from the templates in
+# layers/meta-tegrademo/conf/templates/<distro>/). The source of truth
+# for the configurable templates lives there, not under build/, so the
+# whole build/ tree is untracked and ignored here. The build-*/ entries
+# below cover alternate BUILDDIRs created with `. setup-env <name>`.
+build/
+build-*/
+
+# to_xfs.py output: XFS-converted tegraflash tarballs written to the
+# repo root by default. These are flashing artifacts, not source.
+*.tegraflash.xfs.tar.zst
+*.tegraflash-tar.zst
 *~
 *.pyc
 *.pyo
