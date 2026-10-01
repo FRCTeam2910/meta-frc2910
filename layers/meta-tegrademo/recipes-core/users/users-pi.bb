@@ -4,9 +4,9 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 PR = "r0"
 
-DOTFILES_REF="v0.1"
+DOTFILES_REF = "v0.1"
 
-SRCREV="fa97e077944d36e320201a2627cc6a75e4f1bceb"
+SRCREV = "fa97e077944d36e320201a2627cc6a75e4f1bceb"
 SRC_URI:append = " file://home/pi/.ssh/authorized_keys"
 SRC_URI:append = " file://etc/security/limits.d/rt.conf"
 SRC_URI:append = " git://github.com/AustinSchuh/.dotfiles.git;protocol=https;branch=main;name=dotfiles"
