@@ -8,8 +8,7 @@ DOTFILES_REF = "5f61e185231919b89233b841841ef30c37bc63be"
 
 SRC_URI:append = " file://contents/"
 
-S = "${WORKDIR}/sources"
-UNPACKDIR = "${S}"
+S = "${UNPACKDIR}"
 
 inherit systemd
 

@@ -16,27 +16,61 @@ Metadata layers are brought in as git submodules:
 | meta-virtualization   | wrynose        | Virtualization layer for docker support                           |
 | meta-clang            | wrynose        | Clang/LLVM toolchain layer                                         |
 
+## Supported hardware (MACHINE targets)
+
+The same `demo-image-base` recipe builds for two distinct Jetson Orin Nano
+targets. **Pick the MACHINE that matches your physical hardware** — they
+are not interchangeable: each bakes in a different SOM SKU, carrier
+peripheral config, and (for the SD-card variant) partition layout.
+
+| MACHINE                                                        | Hardware                                                                 | SOM SKU      | Carrier | Rootfs boot |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------ | ------- | ---------- |
+| `p3768-0000-p3767-0003`                                       | Seeed Studio J401 + NVIDIA Jetson Orin Nano 8GB SOM (the FRC target)     | `P3767-0003` | `P3768-0000` | NVMe   |
+| `jetson-orin-nano-devkit-nvme`                                | NVIDIA Jetson Orin Nano devkit (the ~$499 kit box, *not* the J401)       | `0005` (devkit SOM, set by `orin-nano.inc`) | NVIDIA devkit carrier | NVMe  |
+| `jetson-orin-nano-devkit`                                     | NVIDIA Jetson Orin Nano devkit with SD-card rootfs (rarely used here)    | devkit SOM | NVIDIA devkit carrier | SD card |
+
+Notes:
+
+- The Seeed Studio **J401** carrier is the NVIDIA **`P3768-0000`** reference
+  carrier (Seeed is an NVIDIA design partner for this board). The mapping is
+  not obvious from the name — it's encoded in the machine config filename
+  (`p3768-0000-p3767-0003` = P3768 carrier + P3767-0003 SOM) and confirmed
+  by the `#@DESCRIPTION` line in
+  `layers/meta-tegra/conf/machine/p3768-0000-p3767-0003.conf`
+  ("Nvidia Jetson Orin Nano 8G module in P3768 carrier") and the include
+  comment in `layers/meta-tegra/conf/machine/include/p3768.inc`
+  ("Peripheral configuration for p3768-0000 carrier (Orin NX/Nano dev kit)").
+- Don't be fooled by `jetson-orin-nano-devkit-nvme` — it's NVMe-boot *and*
+  Orin Nano, but it targets the **NVIDIA devkit carrier**, not the J401.
+  Its `orin-nano.inc` include defaults `TEGRA_BOARDSKU = "0005"` (the devkit
+  SOM), and the `p3768-0000-p3767-0003` config exists specifically to
+  override that with `TEGRA_BOARDSKU = "0003"` (the production SOM that
+  ships on the Seeed J401). Building the wrong one will produce an image
+  that may fail to flash or boot on the J401.
+
 ## Usage
 
 The upstream project has been modified to support AOS on the Jetson Orin Nano 8GB SOM on a Seeed
-studio J401.  To build, run:
+studio J401.  To build (default target — Seeed J401 + Orin Nano 8GB), run:
 
 ```
 . setup-env --machine p3768-0000-p3767-0003 build
-bitbake demo-image-base && ../to_xfs.py tmp/deploy/images/p3768-0000-p3767-0003/demo-image-base-p3768-0000-p3767-0003.rootfs.tegraflash.tar.gz demo-image-base-p3768-0000-p3767-0003.rootfs.tegraflash.tar.zst
+bitbake demo-image-base && ../to_xfs.py tmp/deploy/images/p3768-0000-p3767-0003/demo-image-base-p3768-0000-p3767-0003.rootfs.tegraflash-tar.zst demo-image-base-p3768-0000-p3767-0003.rootfs.tegraflash.xfs.tar.zst
 ```
 
 Note: this hasn't been tested yet with a fresh checkout, not everything might be captured yet.
 
+`to_xfs.py` takes the build's ext4-based `.tegraflash-tar.zst` tarball as input and writes
+an equivalent tarball whose internal rootfs is XFS (so it can be flashed onto an XFS-formatted
+root partition). The second argument is the *output* path.
+
 To flash, extract the image, then run `sudo ./initrd-flash` with the orin in bootloader mode, connected over USB.
 
-To build for a devkit instead of a seed J401, run:
+To build for the NVIDIA Orin Nano devkit (the kit box, not the Seeed J401) instead, run:
 ```
 . setup-env --machine jetson-orin-nano-devkit-nvme build
-bitbake demo-image-base && ../to_xfs.py tmp/deploy/images/jetson-orin-nano-devkit-nvme/demo-image-base-jetson-orin-nano-devkit-nvme.rootfs.tegraflash.tar.gz demo-image-base-jetson-orin-nano-devkit-nvme.rootfs.tegraflash.tar.zst
+bitbake demo-image-base && ../to_xfs.py tmp/deploy/images/jetson-orin-nano-devkit-nvme/demo-image-base-jetson-orin-nano-devkit-nvme.rootfs.tegraflash-tar.zst demo-image-base-jetson-orin-nano-devkit-nvme.rootfs.tegraflash.xfs.tar.zst
 ```
-
-And flash the same way, with ./initrd-flash
 
 
 To view the serial console:
