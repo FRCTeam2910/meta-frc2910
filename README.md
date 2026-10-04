@@ -83,3 +83,7 @@ modprobe uvcvideo quirks=128
 ```
 
 `dmesg` will spit out frame statistics, including bandwidth usage.
+
+## Global-shutter camera (IMX477)
+
+The walnascar `config_global_shutter_camera.cfg` enabled `CONFIG_NV_VIDEO_IMX477` (NVIDIA's out-of-tree tegra camera driver). That symbol does not exist in the 6.8 noble kernel — NVIDIA dropped the tegra camera driver from the upstream-noble rebase. The fragment is therefore dropped; if NVIDIA ships a 6.8-compatible IMX477 driver it can be re-added as an out-of-tree module.
