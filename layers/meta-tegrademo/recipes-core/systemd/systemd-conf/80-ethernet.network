@@ -1,0 +1,56 @@
+# systemd-networkd configuration for wired ethernet adapters.
+# Installed to /etc/systemd/network/80-ethernet.network
+#
+# Implements zero-config direct-wire networking: when the cable is plugged
+# (carrier detected) networkd immediately assigns an IPv4 link-local address
+# (169.254.x.x, RFC 3927) AND starts a DHCP client in parallel. If a DHCP
+# server answers, networkd acquires a routable address and drops the
+# link-local one. If no DHCP server ever answers the link-local address
+# remains, so the device is always reachable on a direct-wire link and avahi
+# advertises it as orin.local.
+#
+# Why systemd-networkd instead of NetworkManager: NM 1.56.0 has no clean way
+# to provide "link-local now, DHCP if available, fall back to link-local if
+# DHCP never succeeds" -- its link-local=fallback behaviour tears the
+# connection down on DHCP timeout rather than keeping the link-local address,
+# and the two-profile autoconnect fallthrough pattern is fragile. networkd
+# runs both the IPv4LL and DHCPv4 processes concurrently on a single
+# interface and relinquishes the LL only when a routable address is actually
+# configured, which is exactly the desired behaviour.
+#
+# CAN interfaces (cana/canb/canc) have their own 80-can*.network files
+# (Type=can, so the Type=ether match below never selects them); veth*/docker*
+# are excluded so container runtimes own them.
+
+[Match]
+Type=ether
+Name=!veth*
+Name=!docker*
+
+[Network]
+# Start a DHCPv4 client on carrier-up. May never succeed (no DHCP server on a
+# direct-wire link) -- that is fine; the link-local address keeps the
+# interface reachable either way.
+DHCP=ipv4
+# Self-assign an IPv4 link-local address (169.254.x.x) immediately. networkd
+# probes (RFC 5227) before binding, so a collision is detected and a new
+# address chosen. This is the default for ethernet but set explicitly.
+LinkLocalAddressing=ipv4
+# No IPv6 router on the robot network; disabling RA solicitation skips the
+# ~10s boot delay waiting for a non-existent router advertisement.
+IPv6AcceptRA=no
+
+[DHCPv4]
+# Use the client MAC as the DHCP client identifier (deterministic across
+# reboots, matches NM's previous behaviour).
+ClientIdentifier=mac
+# Honour the MTU the DHCP server advertises, if any.
+UseMTU=yes
+# Lower metric than the CAN/link-local routes so DHCP, when it succeeds,
+# wins the default-route election.
+RouteMetric=100
+
+[Link]
+# Don't mark the interface required for the "system is online" check -- CAN
+# and offline NICs must not gate network-online.target.
+RequiredForOnline=no

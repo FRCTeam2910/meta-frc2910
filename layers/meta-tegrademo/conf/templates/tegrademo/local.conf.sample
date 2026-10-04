@@ -236,7 +236,6 @@ BB_GIT_SHALLOW_DEPTH:pn-systemd = "1"
 BB_GIT_SHALLOW:pn-python3-pefile = "1"
 BB_GIT_SHALLOW_DEPTH:pn-python3-pefile = "1"
 
-
 #
 # Kernel: PREEMPT_RT
 #
@@ -264,6 +263,60 @@ PREFERRED_PROVIDER_virtual/kernel = "linux-noble-nvidia-tegra-rt"
 # guards against accidentally selecting dropbear via a future image
 # feature change.
 PREFERRED_RPROVIDER_ssh = "openssh"
+
+#
+# Networking: systemd-networkd + avahi mDNS
+#
+# systemd-networkd owns all wired ethernet adapters via the
+# 80-ethernet.network file installed by the systemd-conf bbappend.  It runs
+# an IPv4 link-local (169.254.x.x, RFC 3927) process AND a DHCPv4 client
+# concurrently per interface: on carrier-up the link-local address is
+# assigned immediately, and if a DHCP server later answers the routable
+# address is configured and the link-local one is dropped; if DHCP never
+# succeeds the link-local address remains.  This is the zero-config
+# direct-wire SSH behaviour (device reachable on a bare cable, advertised
+# as orin.local) that NetworkManager 1.56.0 could not provide cleanly --
+# NM's link-local=fallback tears the connection down on DHCP timeout rather
+# than keeping the link-local address, and a two-NM-profile autoconnect
+# fallthrough is fragile.  IPv6 RA solicitation is disabled (no IPv6 router
+# on the robot network) to skip the ~10s boot delay.  CAN interfaces
+# (cana/canb/canc) are configured by their own 80-can*.network files from
+# aos-configuration (Type=can, so they never match the Type=ether selector).
+#
+# mDNS (so the device is discoverable as orin.local on a direct-wire
+# connection with no DHCP server) is provided by avahi-daemon, NOT
+# systemd-resolved.  avahi is pulled in transitively by core-image.bbclass's
+# packagegroup-base-extended -> packagegroup-base -> packagegroup-base-zeroconf
+# (which RDEPENDS avahi-daemon + libnss-mdns) because the 'zeroconf' distro
+# feature is in the default set.  networkd writes any DHCP-provided
+# nameservers to /etc/resolv.conf directly; avahi handles only .local.
+#
+# Why NOT systemd-resolved (the original intent, abandoned):
+#   systemd-resolved.service is never auto-enabled (oe-core's 99-default.preset
+#   is 'disable *' and the systemd recipe doesn't register the unit in
+#   SYSTEMD_SERVICE), AND systemd is compiled with -Ddefault-mdns=no while
+#   'zeroconf' is in DISTRO_FEATURES (systemd_259.5.bb:225), so the mDNS
+#   responder would be OFF at runtime even if the unit were enabled.
+#
+# Note: systemd-networkd is built from systemd's default PACKAGECONFIG
+# (the 'networkd' flag, systemd_259.5.bb:65) and shipped as the
+# systemd-networkd package, which is RRECOMMENDED by the main systemd
+# package so it lands in the image automatically.  No extra layer is
+# required -- networkd ships in oe-core.  (NetworkManager, formerly pulled
+# in here from meta-networking, has been removed.)
+#
+# Both `avahi-libnss-mdns` (the avahi nss responder, RPROVIDES
+# libnss-mdns) and the standalone `mdns` recipe satisfy runtime
+# `libnss-mdns`. We pin to the avahi one — it's the live resolver for
+# `.local` names that pairs with avahi-daemon (see the block above).
+# Without this bitbake still picks avahi-libnss-mdns but prints a
+# "Multiple providers are available for runtime libnss-mdns
+# (avahi-libnss-mdns, mdns)" NOTE during dependency resolution; the
+# runtime requirement comes transitively from
+# packagegroup-base-zeroconf (pulled in by the default 'zeroconf'
+# distro feature), so the warning is structural, not introduced by
+# any of this commit's other changes.
+PREFERRED_RPROVIDER_libnss-mdns = "avahi-libnss-mdns"
 
 #
 # As mentioned above, shared state files are prebuilt cache data objects which be
