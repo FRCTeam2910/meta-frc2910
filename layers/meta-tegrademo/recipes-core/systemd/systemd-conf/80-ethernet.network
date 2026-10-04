@@ -1,0 +1,22 @@
+# IPv4LL and DHCPv4 run concurrently by design — keep both.
+
+[Match]
+Type=ether
+Name=!veth*
+Name=!docker*
+
+[Network]
+DHCP=ipv4
+LinkLocalAddressing=ipv4
+# No IPv6 router on the robot network; skip the ~10s RA wait.
+IPv6AcceptRA=no
+
+[DHCPv4]
+# mac-based ClientIdentifier: deterministic IP across reboots.
+ClientIdentifier=mac
+UseMTU=yes
+# Below CAN/link-local route metrics so DHCP wins the default route.
+RouteMetric=100
+
+[Link]
+RequiredForOnline=no

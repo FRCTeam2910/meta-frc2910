@@ -186,13 +186,16 @@ BB_GIT_SHALLOW_DEPTH:pn-systemd = "1"
 BB_GIT_SHALLOW:pn-python3-pefile = "1"
 BB_GIT_SHALLOW_DEPTH:pn-python3-pefile = "1"
 
-
 # meta-tegra's -rt variant applies enable-preempt-rt.cfg.
 PREFERRED_PROVIDER_virtual/kernel = "linux-noble-nvidia-tegra-rt"
 
 # Both dropbear and openssh provide `ssh`; pin to openssh (already
 # RDEPENDed by packagegroup-demo-base) to silence the bitbake NOTE.
 PREFERRED_RPROVIDER_ssh = "openssh"
+
+# systemd is built -Ddefault-mdns=no; avahi-libnss-mdns is the only mDNS
+# resolver that ships, pin it over libnss-mdns.
+PREFERRED_RPROVIDER_libnss-mdns = "avahi-libnss-mdns"
 
 #
 # As mentioned above, shared state files are prebuilt cache data objects which be
