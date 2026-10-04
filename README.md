@@ -100,3 +100,27 @@ modprobe uvcvideo quirks=128
 ```
 
 `dmesg` will spit out frame statistics, including bandwidth usage.
+
+## Global-shutter camera (IMX477)
+
+The walnascar baseline (5.15 jammy kernel) shipped a kernel config fragment
+(`config_global_shutter_camera.cfg`) enabling `CONFIG_NV_VIDEO_IMX477`,
+NVIDIA's out-of-tree tegra camera driver for the IMX477 sensor. **That
+symbol does not exist in the 6.8 noble kernel** — NVIDIA dropped the
+tegra camera driver from their upstream-noble rebase
+(`drivers/media/platform/nvidia/` now only contains `tegra-vde`, the
+video decode/encode block; no V4L2 camera sensor driver).
+
+The other two lines in the old fragment were already no-ops on 6.8:
+
+- `# CONFIG_VIDEO_IMX296 is not set` — already disabled in the 6.8
+  defconfig (Sony IMX296 is not used on this hardware).
+- `CONFIG_CAN_MCP251XFD=m` — already built as a module in the 6.8
+  defconfig (this is the MCP2517FD CAN controller driver used by the CAN
+  HAT; no action needed).
+
+So the fragment was dropped entirely from the `linux-noble-nvidia-tegra-rt`
+bbappend and from this layer. If a 6.8-compatible IMX477 driver surfaces
+from NVIDIA (e.g. via JetPack 6 / L4T r39.x extras), it can be added back
+either as an out-of-tree module or via a new fragment once the Kconfig
+symbol exists in the kernel tree.

@@ -236,6 +236,20 @@ BB_GIT_SHALLOW_DEPTH:pn-systemd = "1"
 BB_GIT_SHALLOW:pn-python3-pefile = "1"
 BB_GIT_SHALLOW_DEPTH:pn-python3-pefile = "1"
 
+
+#
+# Kernel: PREEMPT_RT
+#
+# The walnascar baseline shipped PREEMPT_RT for deterministic AOS scheduling
+# latency. meta-tegra's noble kernel ships as two recipe variants sharing
+# linux-noble-nvidia-tegra.inc: the standard recipe (linux-noble-nvidia-tegra)
+# and the -rt variant (linux-noble-nvidia-tegra-rt) which applies the upstream
+# enable-preempt-rt.cfg fragment. Switching the PREFERRED_PROVIDER to the -rt
+# variant turns on CONFIG_PREEMPT_RT (and the associated tracer knobs); the
+# standard recipes leave RT off. Either variant satisfies
+# TEGRA_USING_VENDOR_KERNEL because both startswith("linux-noble-nvidia-tegra").
+PREFERRED_PROVIDER_virtual/kernel = "linux-noble-nvidia-tegra-rt"
+
 #
 # As mentioned above, shared state files are prebuilt cache data objects which be
 # used to accelerate build time. This variable can be used to configure the system
