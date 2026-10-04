@@ -236,6 +236,35 @@ BB_GIT_SHALLOW_DEPTH:pn-systemd = "1"
 BB_GIT_SHALLOW:pn-python3-pefile = "1"
 BB_GIT_SHALLOW_DEPTH:pn-python3-pefile = "1"
 
+
+#
+# Kernel: PREEMPT_RT
+#
+# The walnascar baseline shipped PREEMPT_RT for deterministic AOS scheduling
+# latency. meta-tegra's noble kernel ships as two recipe variants sharing
+# linux-noble-nvidia-tegra.inc: the standard recipe (linux-noble-nvidia-tegra)
+# and the -rt variant (linux-noble-nvidia-tegra-rt) which applies the upstream
+# enable-preempt-rt.cfg fragment. Switching the PREFERRED_PROVIDER to the -rt
+# variant turns on CONFIG_PREEMPT_RT (and the associated tracer knobs); the
+# standard recipes leave RT off. Either variant satisfies
+# TEGRA_USING_VENDOR_KERNEL because both startswith("linux-noble-nvidia-tegra").
+PREFERRED_PROVIDER_virtual/kernel = "linux-noble-nvidia-tegra-rt"
+
+#
+# SSH implementation: openssh
+#
+# Both `dropbear` and `openssh` RPROVIDE the `ssh` runtime. This image
+# uses `ssh-server-openssh` (IMAGE_FEATURES in demo-image-base.bb and
+# demo-image-common.inc) and packagegroup-demo-base RDEPENDS `openssh`,
+# so openssh is the intended implementation. Without this pin bitbake
+# still picks openssh but prints a "Multiple providers are available
+# for runtime ssh (dropbear, openssh)" NOTE during dependency
+# resolution. The warning has been latent since the image recipe first
+# wired in ssh-server-openssh — pinning here silences it for good and
+# guards against accidentally selecting dropbear via a future image
+# feature change.
+PREFERRED_RPROVIDER_ssh = "openssh"
+
 #
 # As mentioned above, shared state files are prebuilt cache data objects which be
 # used to accelerate build time. This variable can be used to configure the system

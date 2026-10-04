@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Austin Schuh <austin.linux@gmail.com>
+Date: Sat, 1 Feb 2025 01:11:51 -0800
+Subject: [PATCH] uvcvideo: Cap USB bandwidth to 1/N of reported on compressed
+ video
+
+The UVC_QUIRK_FIX_BANDWIDTH quirk in uvc_fixup_video_ctrl only fires when
+the format is NOT compressed (the test begins with
+!(format->flags & UVC_FMT_FLAG_COMPRESSED)). MJPEG-compressed cameras
+(e.g. Arducam IMX477 in MJPEG mode) report a dwMaxPayloadTransferSize that
+exceeds the USB endpoint's actual bandwidth, causing isochronous transfer
+overruns and frame drops. The native code skips the bandwidth-reduction
+logic for compressed formats entirely.
+
+Add an else-branch that applies a runtime-configurable divisor to the
+camera's reported dwMaxPayloadTransferSize when the quirk is set and the
+format is compressed. Default divisor of 1 is a no-op; set
+bandwidth_quirk_divisor=8 (or similar) at module-load time to cap
+compressed-format bandwidth.
+
+This is a device hack; the proper fix would be to teach the UVC stack to
+compute compressed-format bandwidth correctly, but that requires per-codec
+knowledge the UVC class spec doesn't expose.
+
+Upstream-Status: Inappropriate [device hack]
+Signed-off-by: Austin Schuh <austin.linux@gmail.com>
+
+Ported from the 5.15 (linux-jammy-nvidia-tegra) version to 6.8
+(linux-noble-nvidia-tegra): the non-compressed branch was refactored (now
+computes a bandwidth estimate and clamps to >=1024) and the header include
+list was reshuffled, but the modification point - the
+dwMaxPayloadTransferSize assignment at the end of the non-compressed
+branch - is unchanged in intent.
+
+---
+ drivers/media/usb/uvc/uvc_video.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/media/usb/uvc/uvc_video.c b/drivers/media/usb/uvc/uvc_video.c
+index bfa3c69..cccf2ec 100644
+--- a/drivers/media/usb/uvc/uvc_video.c
++++ b/drivers/media/usb/uvc/uvc_video.c
+@@ -21,6 +21,9 @@
+ #include <linux/atomic.h>
+ #include <asm/unaligned.h>
+ 
++static int bandwidth_quirk_divisor = 1;
++module_param(bandwidth_quirk_divisor, int, 0660);
++
+ #include <media/jpeg.h>
+ #include <media/v4l2-common.h>
+ 
+@@ -258,6 +261,16 @@ static void uvc_fixup_video_ctrl(struct uvc_streaming *stream,
+ 		bandwidth = max_t(u32, bandwidth, 1024);
+ 
+ 		ctrl->dwMaxPayloadTransferSize = bandwidth;
++	} else if ((format->flags & UVC_FMT_FLAG_COMPRESSED) &&
++			(stream->dev->quirks & UVC_QUIRK_FIX_BANDWIDTH) &&
++			stream->intf->num_altsetting > 1) {
++		uint32_t prior = ctrl->dwMaxPayloadTransferSize;
++
++		if (bandwidth_quirk_divisor > 1)
++			ctrl->dwMaxPayloadTransferSize /= bandwidth_quirk_divisor;
++		uvc_dbg(stream->dev, VIDEO,
++			"Reducing compressed bandwidth from %u B/frame to %u B/frame\n",
++			prior, ctrl->dwMaxPayloadTransferSize);
+ 	}
+ 
+ 	if (stream->intf->num_altsetting > 1 &&
+-- 
+2.39.5
