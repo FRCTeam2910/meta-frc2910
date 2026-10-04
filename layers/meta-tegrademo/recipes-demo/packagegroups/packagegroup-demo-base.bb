@@ -91,6 +91,8 @@ RDEPENDS:${PN} = " \
     sysstat \
     can-utils \
     net-tools \
+    networkmanager \
+    networkmanager-nmcli \
     parted \
     file \
     gdb \

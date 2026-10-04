@@ -1,0 +1,47 @@
+# Default NetworkManager connection profile for wired ethernet.
+# Installed to /etc/NetworkManager/system-connections/wired.nmconnection
+# so a freshly-flashed device is reachable over DHCP (or, when no DHCP
+# server is present, IPv4 link-local 169.254.x.x via the explicit
+# ipv4.link-local=fallback below) on a direct-wire connection with zero
+# first-run configuration. mDNS (via avahi-daemon, pulled in transitively
+# via packagegroup-base/zeroconf) advertises it as orin.local.
+#
+# IPv6 router solicitation is disabled — there is no IPv6 router on the
+# robot network, and waiting for RAs adds ~10s to boot.
+
+[connection]
+id=Wired
+type=ethernet
+autoconnect=true
+permissions=
+
+[ethernet]
+mac-address-blacklist=
+
+[ipv4]
+method=auto
+# IPv4 link-local fallback is NOT implicit in method=auto — DHCP failure
+# leaves the interface unconfigured unless ipv4.link-local is set to
+# "fallback" (NM 1.40+ for the property; the "fallback" enum value is
+# NM 1.52+; this image ships NM 1.56.0). With it, NM self-assigns a
+# 169.254.x.x address when no DHCP server answers (dynamically
+# removing/re-adding it as DHCP leases come and go), which is what lets
+# avahi publish orin.local on a direct-wire connection with no DHCP
+# server (the FRC driver-station / pit case).
+#
+# NOTE: the keyfile key is "link-local" and the value is the enum-string
+# "fallback" — NOT a boolean "link-local-fallback=true" (that key does
+# not exist; NM would silently warn-and-ignore it). Verified against the
+# NM 1.56.0 keyfile parser (src/libnm-core-impl/nm-keyfile.c) and the
+# NMSettingIP4LinkLocal enum in src/libnm-core-public/nm-setting-ip4-config.h.
+link-local=fallback
+# method=auto with link-local=fallback always yields an address (via DHCP
+# or 169.254.x.x), so the ipv4 config can't fail the connection overall.
+may-fail=false
+
+[ipv6]
+# No IPv6 on the robot network; disable to skip RA wait on boot.
+method=disabled
+may-fail=false
+
+[proxy]

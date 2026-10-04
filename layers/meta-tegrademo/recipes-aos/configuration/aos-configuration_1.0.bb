@@ -27,7 +27,6 @@ do_install() {
     chown root:root ${ROOT}${ROOT_HOME}/bin
 
     install -D -m0700 contents/root/bin/trace.sh ${ROOT}${ROOT_HOME}/bin/trace.sh
-    install_content 0500 "root/bin/change_hostname.sh" "root:root"
     install_content 0500 "root/bin/chrt.sh" "root:root"
 
     install_content 0644 "etc/sysctl.d/sctp.conf" "root:root"
