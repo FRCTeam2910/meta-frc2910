@@ -118,7 +118,15 @@ SDKMACHINE ?= "x86_64"
 # There are other application targets that can be used here too, see
 # meta/classes/image.bbclass and meta/classes/core-image.bbclass for more details.
 # We default to enabling the debugging tweaks.
-EXTRA_IMAGE_FEATURES ?= "allow-empty-password allow-root-login empty-root-password"
+#
+# 'package-management' keeps the dpkg package database (/var/lib/dpkg/status)
+# on the rootfs instead of letting oe-core's rootfs.py:_create() call
+# remove_packaging_data() at the end of do_rootfs. Without it, the dpkg and
+# dpkg-deb binaries are still installed (pulled in via packagegroup-demo-base)
+# but `dpkg -l` returns nothing because the status database was deleted.
+# With it, on-device `dpkg -l`, `dpkg -query -W`, `apt list`, and (with apt
+# installed) `apt install <pkg>` all work.
+EXTRA_IMAGE_FEATURES ?= "allow-empty-password allow-root-login empty-root-password package-management"
 
 #
 # Additional image features
