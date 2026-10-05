@@ -55,6 +55,8 @@ RDEPENDS:${PN} = " \
     gstreamer1.0-plugins-nveglgles \
     rsync \
     vim \
+    dpkg \
+    apt \
     strace \
     media-ctl \
     gstreamer1.0-plugins-bad-dev \
