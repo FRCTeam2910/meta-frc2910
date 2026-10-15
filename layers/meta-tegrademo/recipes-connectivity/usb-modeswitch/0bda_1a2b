@@ -1,0 +1,59 @@
+# usb_modeswitch dispatcher config for the Realtek RTL8188GU / RTL8710BU
+# USB WiFi 6 adapter (ASUS USB-BE92 and other OEM shells of the same chip).
+#
+# Out of the box this adapter enumerates as a virtual SCSI CD-ROM with
+# VID:PID 0bda:1a2b ("Realtek Semiconductor Corp. RTL8188GU 802.11n WLAN
+# Adapter (Driver CDROM Mode)") containing Windows driver installers.
+# After the modeswitch the same USB device flips its product ID to
+# 0bda:b711 and exposes the vendor-specific WLAN interface that the
+# mainline rtl8xxxu driver (drivers/net/wireless/realtek/rtl8xxxu/8710b.c)
+# matches with USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_REALTEK, 0xb711,...).
+#
+# IMPORTANT: this switch is a USB control-message modeswitch, NOT a SCSI
+# eject. The kernel's unusual_devs.h (entry at lines ~1509 in the 6.8
+# source, "Reported by Zenm Chen") deliberately marks 0bda:1a2b with
+# US_FL_IGNORE_DEVICE so that the usb-storage driver refuses to bind the
+# autoinstall-CD interface — the kernel log will report:
+#     usb-storage 1-X:1.0: USB Mass Storage device detected
+#     usb-storage 1-X:1.0: device ignored
+# and there will be NO /dev/sr0 to `eject`. The IGNORE is intentional so
+# that usb_modeswitch (rather than the kernel's cdrom plymount) can drive
+# the flip. The comment in unusual_devs.h is explicit:
+#   "Ignore driver CD mode, otherwise usb_modeswitch may fail to switch
+#    the device into Wi-Fi mode."
+#
+# Because usb-storage never binds, DetachStorageOnly=1 (the cdrom-eject
+# shortcut used for many Realtek autoinstall-CD chips on distros where
+# usb-storage *does* bind) does nothing here. Instead usb_modeswitch must
+# speak USB Mass Storage Bulk-Only Transport directly to the device and
+# send it a SCSI START_STOP_UNIT (opcode 0x1b) with LoEJ=1 (load/eject
+# the medium), which Realtek's firmware interprets as "exit the
+# autoinstall-CD persona and re-enumerate as a WLAN adapter".
+#
+# The MessageContent below is the 31-byte Command Block Wrapper (CBW)
+# for START_STOP_UNIT:
+#   55 53 42 43          CBW signature
+#   12 34 56 78          tag
+#   00 00 00 00          data transfer length (no data phase)
+#   00                   flags (host->device, OUT)
+#   06                   LUN
+#   06                   CDB length
+#   1b                   SCSI START_STOP_UNIT opcode
+#   00                   immediate=0
+#   00 00                reserved
+#   02                   start=0, load/eject=1 (LoEJ=1)
+#   00                   power condition 0
+#   00 00 ... 00         pad to 31 bytes
+#
+# Stock usb_modeswitch-data does NOT ship an entry for 0bda:1a2b — this
+# file is the only thing that makes the auto-switch happen on a minimal
+# Yocto demo-image-base build.
+#
+# Install path: /etc/usb_modeswitch.d/0bda:1a2b (the usb_modeswitch udev
+# dispatcher at /lib/udev/usb_modeswitch picks it up by filename).
+DefaultVendor=0x0bda
+DefaultProduct=0x1a2b
+TargetVendor=0x0bda
+TargetProduct=0xb711
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+CheckSuccess=20
