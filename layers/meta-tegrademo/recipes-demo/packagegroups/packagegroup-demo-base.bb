@@ -134,6 +134,12 @@ RDEPENDS:${PN} = " \
     kernel-module-uvcvideo \
     tshark \
     tegra-bootfiles-dev \
+    usb-modeswitch \
+    usb-modeswitch-data \
+    kernel-devsrc \
+    make \
+    binutils \
+    iw \
  "
 # clang
 #    gcc
