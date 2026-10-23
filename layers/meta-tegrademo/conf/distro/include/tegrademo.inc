@@ -23,6 +23,9 @@ TD_DEFAULT_DISTRO_FEATURES = "largefile opengl multiarch wayland systemd pam vir
 
 DISTRO_FEATURES ?= "${DISTRO_FEATURES_DEFAULT} ${TD_DEFAULT_DISTRO_FEATURES}"
 
+PREFERRED_RPROVIDER_libnss-mdns ?= "avahi-libnss-mdns"
+PREFERRED_RPROVIDER_ssh ?= "openssh"
+
 # Jetson platforms do not use linux-yocto, but for QEMU testing
 # align with the poky distro.
 #TEGRA_DEFAULT_KERNEL ?= "linux-yocto"
