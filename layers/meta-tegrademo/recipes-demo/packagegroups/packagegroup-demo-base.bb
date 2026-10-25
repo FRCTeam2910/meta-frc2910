@@ -131,6 +131,14 @@ RDEPENDS:${PN} = " \
     kernel-module-usbmon \
     tshark \
     tegra-bootfiles-dev \
+    usb-modeswitch \
+    usb-modeswitch-data \
+    kernel-devsrc \
+    make \
+    binutils \
+    gcc-symlinks \
+    cpp \
+    iw \
  "
 # clang
 #    gcc
