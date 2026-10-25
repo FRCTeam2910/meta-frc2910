@@ -1,6 +1,6 @@
 FILESEXTRAPATHS:append := ":${THISDIR}/${PN}/"
 
-hostname:pn-base-files = "orin-1868-1"
+hostname:pn-base-files = "orin"
 
 SRC_URI:append = " file://hosts"
 

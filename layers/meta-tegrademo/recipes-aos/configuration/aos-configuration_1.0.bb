@@ -53,6 +53,8 @@ do_install() {
 RDEPENDS:${PN} += " git"
 RDEPENDS:${PN} += " bash-completion git-bash-completion"
 RDEPENDS:${PN} += " bash"
+# hostnamectl ships in the main `systemd` package, not systemd-networkd.
+RDEPENDS:${PN} += " systemd"
 
 FILES:${PN} = "${base_prefix}${ROOT_HOME}/"
 FILES:${PN}:append = " ${base_prefix}${ROOT_HOME}/bin/"
