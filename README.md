@@ -19,8 +19,7 @@ The upstream project has been modified to support AOS on the Jetson Nano 8GB SOM
 studio J401.  To build, run:
 
 ```
-export MACHINE=p3768-0000-p3767-0003
-. repos/poky/oe-init-build-env build
+. ./setup-env --machine p3768-0000-p3767-0003 build
 bitbake demo-image-base && ../to_xfs.py tmp/deploy/images/p3768-0000-p3767-0003/demo-image-base-p3768-0000-p3767-0003.rootfs.tegraflash.tar.gz demo-image-base-p3768-0000-p3767-0003.rootfs.tegraflash.tar.zst
 ```
 
@@ -30,8 +29,7 @@ To flash, extract the image, then run `sudo ./initrd-flash` with the orin in boo
 
 To build for a devkit instead of a seed J401, run:
 ```
-export MACHINE=jetson-orin-nano-devkit-nvme
-. repos/poky/oe-init-build-env build
+. ./setup-env --machine jetson-orin-nano-devkit-nvme build
 bitbake demo-image-base && ../to_xfs.py tmp/deploy/images/jetson-orin-nano-devkit-nvme/demo-image-base-jetson-orin-nano-devkit-nvme.rootfs.tegraflash.tar.gz demo-image-base-jetson-orin-nano-devkit-nvme.rootfs.tegraflash.tar.zst
 ```
 
