@@ -1,0 +1,69 @@
+If we link against a newer glibc 2.34 and our LD_PRELOAD runs on a
+host with an older libc, we see symbol errors since glibc 2.34 merged pthread
+and dl into libc itself. Use the older linking form via glibc binaries from an
+older release to force this; only minimal symbols are used from them.
+
+pthread_atfork is problematic, especially on arm, so use the internal glibc
+routine it maps to (present in main libc since 2.3.2).
+
+Better solutions welcome. See [YOCTO #14521].
+
+Upstream-Status: Inappropriate [this patch is native and nativesdk]
+Signed-off-by: Richard Purdie <richard.purdie@linuxfoundation.org>
+Tweak library search order, make prebuilt lib ahead of recipe lib
+Signed-off-by: Hongxu Jia <hongxu.jia@windriver.com>
+
+Rebased onto pseudo 1.9.5: LIBPSEUDO rule gained pseudo_client_scanf.o and
+the _libpseudo_init context shifted. Extern declarations placed at file
+scope (before _libpseudo_init) so they compile; the original poky patch
+inserted them mid-function and only worked on older GCCs. No other
+functional change.
+---
+
+ Makefile.in       |  2 +-
+ pseudo_wrappers.c |  5 ++++-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -120,13 +120,13 @@
+ 	$(CC) $(CFLAGS) $(CFLAGS_PSEUDO) -o $(PSEUDODB) pseudodb.o \
+ 		$(DBOBJS) $(SHOBJS) pseudo_ipc.o $(LDFLAGS) $(DB_LDFLAGS) $(CLIENT_LDFLAGS)
+ 
+ libpseudo: $(LIBPSEUDO)
+ 
+ $(LIBPSEUDO): $(WRAPOBJS) pseudo_client.o pseudo_client_scanf.o pseudo_ipc.o $(SHOBJS) | $(LIB)
+-	$(CC) $(CFLAGS) $(CFLAGS_PSEUDO) -shared -o $(LIBPSEUDO) \
++	$(CC) $(CFLAGS)  -Lprebuilt/$(shell uname -m)-linux/lib/ $(CFLAGS_PSEUDO) -shared -o $(LIBPSEUDO) \
+ 		pseudo_client.o pseudo_client_scanf.o pseudo_ipc.o \
+ 		$(WRAPOBJS) $(SHOBJS) $(LDFLAGS) $(CLIENT_LDFLAGS)
+ 
+ # *everything* now relies on stuff that's generated in the
+ # wrapper process.
+ %.o: %.c pseudo_wrapfuncs.h
+
+--- a/pseudo_wrappers.c
++++ b/pseudo_wrappers.c
+@@ -97,16 +97,19 @@
+ {
+ 	pthread_mutex_init(&pseudo_mutex, NULL);
+ 	pseudo_mutex_recursion = 0;
+ 	pseudo_mutex_holder = 0;
+ }
+ 
++extern void *__dso_handle;
++extern int __register_atfork (void (*) (void), void (*) (void), void (*) (void), void *);
++
+ static void
+ _libpseudo_init(void) {
+ 	if (!_libpseudo_initted)
+-		pthread_atfork(NULL, NULL, libpseudo_atfork_child);
++		__register_atfork (NULL, NULL, libpseudo_atfork_child, &__dso_handle == NULL ? NULL : __dso_handle);
+ 
+ 	pseudo_getlock();
+ 	pseudo_antimagic();
+ 	_libpseudo_initted = 1;
+ 
+ 	pseudo_init_util();
+-- 
+2.27.0
