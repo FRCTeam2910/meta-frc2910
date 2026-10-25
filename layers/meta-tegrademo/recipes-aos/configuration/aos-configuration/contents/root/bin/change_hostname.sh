@@ -1,60 +1,45 @@
 #!/bin/bash
-
+# Rename the device at runtime: hostnamectl + /etc/hosts rewrite + avahi restart.
+# Restarts avahi because it caches the hostname at startup.
 set -xeuo pipefail
 
-HOSTNAME="$1"
-
-# TODO<Jim>: Should probably add handling for imu hostname, too
-if [[ ! "${HOSTNAME}" =~ ^orin-[0-9]*-[0-9]$ ]]; then
-  echo "Invalid hostname ${HOSTNAME}, needs to be orin-[team#]-[orin#]"
+if [[ $# -ne 1 ]]; then
+  echo "Usage: $0 <new_hostname>" >&2
   exit 1
 fi
 
-TEAM_NUMBER="$(echo ${HOSTNAME} | /bin/sed 's/orin-\(.*\)-.*/\1/')"
-ORIN_NUMBER="$(echo ${HOSTNAME} | /bin/sed 's/orin-.*-\(.*\)/\1/')"
-IP_BASE="$(echo ${TEAM_NUMBER} | /bin/sed 's/\(.*\)\(..\)/10.\1.\2/')"
-IP="${IP_BASE}.$(( 100 + ${ORIN_NUMBER}))"
+# Avoid shadowing bash's built-in ${HOSTNAME} (holds the *current* hostname).
+NEW_HOSTNAME="$1"
 
-echo "Changing to team number ${TEAM_NUMBER}, IP ${IP}"
-
-/bin/sed -i "s/^Address=.*$/Address=${IP}\/24/" /etc/systemd/network/eth0.network
-/bin/sed -i "s/^Gateway=.*$/Gateway=${IP_BASE}.13/" /etc/systemd/network/eth0.network
-
-echo "${HOSTNAME}" > /etc/hostname
-
-# If the file doesn't exist, create it and add an localhost entry
-if [[ ! -f /etc/hosts ]]; then
-  echo -e "127.0.0.1\tlocalhost" > /etc/hosts
+if [[ ! "${NEW_HOSTNAME}" =~ ^[A-Za-z]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$ ]]; then
+  echo "Invalid hostname '${NEW_HOSTNAME}'.  Must be 1-63 chars, [A-Za-z0-9-]," >&2
+  echo "start with a letter, end with a letter or digit, hyphens only interior." >&2
+  exit 1
 fi
 
-# Make sure a 127.0.* entry exists to make things looking up localhost happy.
-if grep '^127.0.1.1' /etc/hosts > /dev/null;
-then
-  /bin/sed -i "s/\(127\.0\.1\.1\t\).*$/\1${HOSTNAME}/" /etc/hosts
+echo "Changing hostname to ${NEW_HOSTNAME}"
+
+hostnamectl set-hostname "${NEW_HOSTNAME}"
+
+HOSTS_FILE=/etc/hosts
+HOSTS_LINE_PREFIX="127.0.1.1"
+HOSTS_LINE_REST="${NEW_HOSTNAME}.local ${NEW_HOSTNAME}"
+
+if [[ ! -f "${HOSTS_FILE}" ]]; then
+  echo -e "127.0.0.1\tlocalhost" > "${HOSTS_FILE}"
+fi
+
+if grep -q '^127\.0\.1\.1' "${HOSTS_FILE}"; then
+  /bin/sed -i "s|^127\.0\.1\.1.*|${HOSTS_LINE_PREFIX}\t${HOSTS_LINE_REST}|" "${HOSTS_FILE}"
 else
-  echo -e "127.0.1.1\t${HOSTNAME}" >> /etc/hosts
+  echo -e "${HOSTS_LINE_PREFIX}\t${HOSTS_LINE_REST}" >> "${HOSTS_FILE}"
 fi
 
-# Put correct team number in orin's IP addresses, or add them if needed
-if grep '^10\.[0-9]*\.[0-9]*\.[0-9]*\s*orin-[0-9]*-[0-9] orin[0-9]$' /etc/hosts >/dev/null ;
-then
-  /bin/sed -i "s/^10\.[0-9]*\.[0-9]*\(\.[0-9]*\s*orin-\)[0-9]*\(-[0-9] orin[0-9]\)\(.*\)$/${IP_BASE}\1${TEAM_NUMBER}\2\3/" /etc/hosts
+# Ignore failure: image may have been built without 'zeroconf'.
+if systemctl restart avahi-daemon 2>/dev/null; then
+  echo "avahi-daemon restarted -- ${NEW_HOSTNAME}.local should appear on the network within ~1s"
 else
-  for i in {1..3}; do
-      imu=""
-      # Add imu name to orin3.  Put space in this string, since extra
-      # spaces otherwise will make the above grep fail
-      if [[ ${i} == 3 ]]; then
-          imu=" imu"
-      fi
-    echo -e "${IP_BASE}.$(( i + 100 ))\torin-${TEAM_NUMBER}-${i} orin${i}${imu}" >> /etc/hosts
-  done
+  echo "avahi-daemon not available on this image; ${NEW_HOSTNAME}.local will not be published via mDNS" >&2
 fi
 
-# Put correct team number in roborio's address, or add it if missing
-if grep '^10\.[0-9]*\.[0-9]*\.2\s*roborio$' /etc/hosts >/dev/null;
-then
-  /bin/sed -i "s/^10\.[0-9]*\.[0-9]*\(\.2\s*roborio\)$/${IP_BASE}\1/" /etc/hosts
-else
-  echo -e "${IP_BASE}.2\troborio" >> /etc/hosts
-fi
+echo "Done.  Reach the device at ${NEW_HOSTNAME}.local (mDNS) or ${NEW_HOSTNAME} (local /etc/hosts)."
